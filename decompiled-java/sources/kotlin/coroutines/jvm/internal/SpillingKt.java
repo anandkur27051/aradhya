@@ -1,0 +1,13 @@
+package kotlin.coroutines.jvm.internal;
+
+import androidx.constraintlayout.widget.ConstraintLayout;
+import kotlin.Metadata;
+
+/* compiled from: Spilling.kt */
+@Metadata(m129d1 = {"\u0000\n\n\u0000\n\u0002\u0010\u0000\n\u0002\b\u0002\u001a\u0014\u0010\u0000\u001a\u0004\u0018\u00010\u00012\b\u0010\u0002\u001a\u0004\u0018\u00010\u0001H\u0001¨\u0006\u0003"}, m130d2 = {"nullOutSpilledVariable", "", "value", "kotlin-stdlib"}, m131k = 2, m132mv = {2, 2, 0}, m134xi = ConstraintLayout.LayoutParams.Table.LAYOUT_CONSTRAINT_VERTICAL_CHAINSTYLE)
+/* loaded from: classes.dex */
+public final class SpillingKt {
+    public static final Object nullOutSpilledVariable(Object value) {
+        return null;
+    }
+}

@@ -1,0 +1,16 @@
+package android.accessibilityservice;
+
+/* loaded from: classes4.dex */
+public /* synthetic */ interface BrailleDisplayController {
+
+    /* loaded from: classes4.dex */
+    public /* synthetic */ interface BrailleDisplayCallback {
+        static {
+            throw new NoClassDefFoundError();
+        }
+    }
+
+    static {
+        throw new NoClassDefFoundError();
+    }
+}

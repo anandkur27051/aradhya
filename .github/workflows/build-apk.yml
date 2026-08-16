@@ -1,0 +1,61 @@
+name: Build JARVIS APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout recovered project
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        run: sdkmanager "build-tools;35.0.0"
+
+      - name: Download Apktool
+        run: curl --fail --location --retry 3 --output apktool.jar https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+
+      - name: Rebuild APK from decoded project
+        run: java -jar apktool.jar b apk-project --output build/JARVIS-unsigned.apk
+
+      - name: Generate CI signing key and sign APK
+        run: |
+          mkdir -p build
+          keytool -genkeypair -v \
+            -keystore build/ci-release.keystore \
+            -storepass changeit \
+            -keypass changeit \
+            -alias jarvis-ci \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=JARVIS CI, OU=JARVIS, O=JARVIS, C=IN"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks build/ci-release.keystore \
+            --ks-pass pass:changeit \
+            --ks-key-alias jarvis-ci \
+            --key-pass pass:changeit \
+            --out build/JARVIS-debuggable-output.apk \
+            build/JARVIS-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/JARVIS-debuggable-output.apk
+
+      - name: Upload rebuilt APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-APK
+          path: build/JARVIS-debuggable-output.apk

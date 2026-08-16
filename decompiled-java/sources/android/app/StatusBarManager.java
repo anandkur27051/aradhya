@@ -1,0 +1,8 @@
+package android.app;
+
+/* loaded from: classes4.dex */
+public /* synthetic */ class StatusBarManager {
+    static {
+        throw new NoClassDefFoundError();
+    }
+}
