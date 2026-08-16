@@ -12,50 +12,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout recovered project
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK tools
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android build tools
-        run: sdkmanager "build-tools;35.0.0"
-
-      - name: Download Apktool
-        run: curl --fail --location --retry 3 --output apktool.jar https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
-
-      - name: Rebuild APK from decoded project
-        run: java -jar apktool.jar b apk-project --output build/JARVIS-unsigned.apk
-
-      - name: Generate CI signing key and sign APK
+      - name: Install Android SDK packages
         run: |
-          mkdir -p build
-          keytool -genkeypair -v \
-            -keystore build/ci-release.keystore \
-            -storepass changeit \
-            -keypass changeit \
-            -alias jarvis-ci \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=JARVIS CI, OU=JARVIS, O=JARVIS, C=IN"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
-            --ks build/ci-release.keystore \
-            --ks-pass pass:changeit \
-            --ks-key-alias jarvis-ci \
-            --key-pass pass:changeit \
-            --out build/JARVIS-debuggable-output.apk \
-            build/JARVIS-unsigned.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/JARVIS-debuggable-output.apk
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Upload rebuilt APK
+      - name: Build debug APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JARVIS-APK
-          path: build/JARVIS-debuggable-output.apk
+          name: JARVIS-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

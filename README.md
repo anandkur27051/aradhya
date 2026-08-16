@@ -1,27 +1,32 @@
-# JARVIS Android APK — recovered source
+# JARVIS Android App
 
-This repository contains the recoverable project extracted from the uploaded JARVIS APK.
+This repository contains the original Android Studio source project supplied for JARVIS.
 
-## Contents
+## Project layout
 
-- `apk-project/` — Apktool project with decoded `AndroidManifest.xml`, resources, assets, and smali bytecode for all DEX files. This is the rebuildable source representation.
-- `decompiled-java/` — JADX-generated readable Java reconstruction. Decompiled Java can contain compiler-generated names or code that needs manual cleanup; use `apk-project/` for faithful rebuilding.
-- `apk/JARVIS-fixed.apk` — signed APK that can be installed directly.
-- `.github/workflows/build-apk.yml` — GitHub Actions workflow that rebuilds and signs an APK when run manually or when changes are pushed to `main`.
+- `app/src/main/java/` — Kotlin application source
+- `app/src/main/res/` — Android resources and accessibility-service configuration
+- `app/src/main/assets/index.html` — JARVIS WebView interface
+- `app/build.gradle.kts` — Android/Kotlin build configuration
+- `.github/workflows/build-apk.yml` — GitHub Actions build workflow
 
-## Build on GitHub Actions
+## Build from GitHub
 
 1. Open the **Actions** tab.
 2. Select **Build JARVIS APK**.
-3. Choose **Run workflow**.
-4. Download the `JARVIS-APK` artifact from the completed run.
+3. Click **Run workflow**, or push a change to `main`.
+4. Download `JARVIS-debug-apk` from the completed workflow run.
 
-The workflow uses Apktool to rebuild the recovered smali/resources project and signs the generated APK with a CI key created for that run.
+The workflow installs Android SDK 34, runs the included Gradle wrapper, and uploads the signed debug APK from `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Important limitation
+## Local build
 
-An APK contains compiled bytecode, not the original Android Studio Kotlin/Java project. The original source-level names, comments, Gradle files, and some compiler structure cannot be recovered exactly. The included smali project is the faithful rebuildable representation; the JADX Java tree is provided for readability and editing reference.
+```bash
+./gradlew assembleDebug
+```
 
-## Install
+The original source ZIP included generated Gradle/editor caches and an inner duplicate archive. Those generated files were intentionally excluded from the repository; all app source, resources, assets, Gradle files, and wrapper files are preserved.
 
-If an older JARVIS package is installed, uninstall it first, then install `apk/JARVIS-fixed.apk` or the artifact produced by the workflow.
+## Permissions and setup
+
+JARVIS requests permissions for microphone, accessibility control, overlay display, contacts, notifications, and device automation. Android may require enabling the accessibility service and overlay permission after installation.
