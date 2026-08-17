@@ -52,7 +52,8 @@ class AndroidBridge(private val context: Context) : TextToSpeech.OnInitListener 
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale("hi", "IN")
             tts?.setPitch(1.0f)
-            tts?.setSpeechRate(1.0f)
+            tts?.setSpeechRate(memory.recall("preferred_rate")?.toFloatOrNull()?.coerceIn(0.7f, 1.3f) ?: 1.0f)
+            memory.recall("preferred_language")?.let { applyLanguage(it) }
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {}
                 override fun onDone(utteranceId: String?) {
@@ -81,8 +82,7 @@ class AndroidBridge(private val context: Context) : TextToSpeech.OnInitListener 
         }
     }
 
-    @JavascriptInterface
-    fun setLanguage(lang: String) {
+    private fun applyLanguage(lang: String) {
         val locale = when (lang.lowercase()) {
             "hindi" -> Locale("hi", "IN")
             "urdu" -> Locale("ur", "PK")
@@ -96,7 +96,19 @@ class AndroidBridge(private val context: Context) : TextToSpeech.OnInitListener 
             else -> Locale("hi", "IN")
         }
         tts?.language = locale
+    }
+
+    @JavascriptInterface
+    fun setLanguage(lang: String) {
+        applyLanguage(lang)
         memory.remember("preferred_language", lang)
+    }
+
+    @JavascriptInterface
+    fun setSpeechRate(rate: String) {
+        val value = rate.toFloatOrNull()?.coerceIn(0.7f, 1.3f) ?: 1.0f
+        tts?.setSpeechRate(value)
+        memory.remember("preferred_rate", value.toString())
     }
 
     @JavascriptInterface
