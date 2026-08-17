@@ -11,6 +11,7 @@ import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebStorage
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -23,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        resetLegacyOwnerDataIfNeeded()
         checkAndRequestPermissions()
 
         val webView = WebView(this)
@@ -68,6 +70,21 @@ class MainActivity : AppCompatActivity() {
         checkAccessibilityPermission()
         checkOverlayPermission()
         checkWriteSettingsPermission()
+    }
+
+    /**
+     * The old build stored its API key, remembered contacts, conversations,
+     * and WebView config locally. Clear that state exactly once on the owner
+     * migration to prevent an APK update from inheriting somebody else's data.
+     */
+    private fun resetLegacyOwnerDataIfNeeded() {
+        val migrationPrefs = getSharedPreferences("JarvisOwnerMigration", MODE_PRIVATE)
+        val currentVersion = migrationPrefs.getInt("owner_data_version", 0)
+        if (currentVersion >= 2) return
+
+        getSharedPreferences("JarvisMemory", MODE_PRIVATE).edit().clear().apply()
+        WebStorage.getInstance().deleteAllData()
+        migrationPrefs.edit().putInt("owner_data_version", 2).apply()
     }
 
     private fun checkAccessibilityPermission() {

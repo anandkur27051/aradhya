@@ -1288,6 +1288,12 @@ class AndroidBridge(private val context: Context) : TextToSpeech.OnInitListener 
     }
 
     @JavascriptInterface
+    fun resetOwnerData(): String {
+        memory.clearAllMemory()
+        return "OWNER_DATA_RESET"
+    }
+
+    @JavascriptInterface
     fun askWebViewAI(message: String): String {
         val savedKey = memory.recall("ai_api_key") ?: ""
         val savedUrl = memory.recall("ai_api_url") ?: ""

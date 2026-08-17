@@ -11,8 +11,10 @@ android {
         applicationId = "com.example.myapplication"
         minSdk = 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        // Version 2 clears legacy owner/API data once when upgrading from
+        // the previous build, so a new owner does not inherit old sync state.
+        versionCode = 2
+        versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

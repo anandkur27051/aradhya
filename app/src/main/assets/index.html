@@ -447,6 +447,8 @@
     <h2 style="text-align:center;margin-bottom:20px;font-family:var(--font-hud);color:#fff">CORE UPLINK</h2>
     <input type="password" id="key-input" style="width:100%;background:#111216;border:1px solid var(--widget-border);border-radius:14px;color:#fff;padding:15px;margin-bottom:20px" placeholder="Paste API key...">
     <button class="btn-send" style="width:100%;padding:18px;" onclick="saveConfig()">SYNC CORE</button>
+    <button class="btn-send" style="width:100%;padding:14px;margin-top:12px;background:#35151c;color:#ff8f8f" onclick="resetOwnerData()">CLEAR OLD OWNER DATA</button>
+    <p style="text-align:center;margin:10px 0 0;color:#8f8f98;font-size:10px">Clears old app memory and API sync. Phone contacts are not deleted.</p>
     <p style="text-align:center;margin-top:30px;color:var(--gold);cursor:pointer;" onclick="closeModal('cfg-modal')">[ DISMISS ]</p>
 </div>
 
@@ -650,6 +652,20 @@
         document.getElementById('d-link').innerText = state.config.key ? "ACTIVE" : "OFFLINE";
         closeModal('cfg-modal');
         speak("System uplink established.");
+    }
+
+    function resetOwnerData() {
+        if (!confirm("Clear old owner memory, saved app contacts, and API sync? Phone contacts will not be deleted.")) return;
+        localStorage.removeItem('jarvis_config');
+        state.config = { key: '', model: 'llama-3.1-8b-instant' };
+        document.getElementById('key-input').value = '';
+        document.getElementById('d-link').innerText = "OFFLINE";
+        if (typeof Android !== "undefined" && Android.resetOwnerData) {
+            Android.resetOwnerData();
+        }
+        closeModal('cfg-modal');
+        addMsg("JARVIS", "Old owner data clear ho gaya. Ab apni API key se naya sync karein.");
+        speak("Old owner data clear ho gaya. Ab apna core sync karein.");
     }
 
     function loadConfig() {

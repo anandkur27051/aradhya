@@ -19,6 +19,10 @@ This repository contains the original Android Studio source project supplied for
 
 The workflow installs Android SDK 34, runs the included Gradle wrapper, and uploads the signed debug APK from `app/build/outputs/apk/debug/app-debug.apk`.
 
+## Owner data reset
+
+Version 2 clears the previous build's locally stored API key, app memory, conversations, and saved in-app contacts once during the upgrade. The settings screen also includes **CLEAR OLD OWNER DATA** for a manual reset. The reset does not delete contacts from the phone's Contacts app.
+
 ## Local build
 
 ```bash
