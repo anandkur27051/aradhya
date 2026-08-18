@@ -114,31 +114,101 @@ class AndroidBridge(private val context: Context) : TextToSpeech.OnInitListener 
     @JavascriptInterface
     fun openApp(appName: String) {
         val pm = context.packageManager
-        val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-        var targetIntent: Intent? = null
-        var foundName = ""
+        val query = normalizeAppQuery(appName)
+        if (query.isBlank()) {
+            speak("Sir, kaun si app kholni hai?")
+            return
+        }
 
-        for (app in packages) {
-            val label = pm.getApplicationLabel(app).toString().lowercase()
-            val pkg = app.packageName.lowercase()
-            val query = appName.lowercase().trim()
+        // These apps are common but their package names/labels differ by OEM.
+        // Prefer a direct intent where Android provides one, then fall back to
+        // the installed-app search below.
+        val directIntent = when {
+            query in setOf("settings", "setting", "phone settings") ->
+                Intent(Settings.ACTION_SETTINGS)
+            query in setOf("camera", "cam") ->
+                Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+            query in setOf("phone", "dialer", "telephone") ->
+                Intent(Intent.ACTION_DIAL)
+            else -> null
+        }
 
-            if (label == query || label.contains(query) || pkg.contains(query)) {
-                targetIntent = pm.getLaunchIntentForPackage(app.packageName)
-                foundName = pm.getApplicationLabel(app).toString()
-                if (targetIntent != null) break
+        val packageAliases = mapOf(
+            "whatsapp" to listOf("com.whatsapp", "com.whatsapp.w4b"),
+            "youtube" to listOf("com.google.android.youtube"),
+            "yt" to listOf("com.google.android.youtube"),
+            "chrome" to listOf("com.android.chrome"),
+            "gmail" to listOf("com.google.android.gm"),
+            "instagram" to listOf("com.instagram.android"),
+            "maps" to listOf("com.google.android.apps.maps"),
+            "google maps" to listOf("com.google.android.apps.maps"),
+            "play store" to listOf("com.android.vending"),
+            "playstore" to listOf("com.android.vending")
+        )
+
+        var targetIntent: Intent? = directIntent
+        var foundName = appName.trim()
+
+        if (targetIntent == null) {
+            for (packageName in packageAliases[query].orEmpty()) {
+                targetIntent = pm.getLaunchIntentForPackage(packageName)
+                if (targetIntent != null) {
+                    foundName = pm.getApplicationLabel(
+                        pm.getApplicationInfo(packageName, 0)
+                    ).toString()
+                    break
+                }
+            }
+        }
+
+        if (targetIntent == null) {
+            val candidates = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                .mapNotNull { app ->
+                    val label = pm.getApplicationLabel(app).toString()
+                    val labelQuery = label.lowercase(Locale.ROOT)
+                    val packageQuery = app.packageName.lowercase(Locale.ROOT)
+                    val score = when {
+                        labelQuery == query -> 100
+                        labelQuery.startsWith(query) -> 80
+                        labelQuery.contains(query) -> 60
+                        packageQuery.contains(query.replace(" ", "")) -> 40
+                        else -> 0
+                    }
+                    if (score == 0) null
+                    else Triple(score, label, pm.getLaunchIntentForPackage(app.packageName))
+                }
+                .filter { it.third != null }
+                .sortedByDescending { it.first }
+
+            val best = candidates.firstOrNull()
+            if (best != null) {
+                foundName = best.second
+                targetIntent = best.third
             }
         }
 
         if (targetIntent != null) {
-            targetIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            targetIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            context.startActivity(targetIntent)
-            memory.trackAppLaunch(foundName)
-            showToast("Ji Sir, $foundName khol raha hoon.")
+            try {
+                targetIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                targetIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                context.startActivity(targetIntent)
+                memory.trackAppLaunch(foundName)
+                showToast("Ji Sir, $foundName khol raha hoon.")
+            } catch (e: Exception) {
+                Log.e("AndroidBridge", "Unable to launch '$appName'", e)
+                speak("Sir, $foundName open nahi ho pa rahi.")
+            }
         } else {
-            speak("Maaf kijiyega Sir, mujhe aapki device mein $appName nahi mil rahi.")
+            speak("Maaf kijiyega Sir, mujhe device mein $appName nahi mil rahi.")
         }
+    }
+
+    private fun normalizeAppQuery(appName: String): String {
+        return appName.lowercase(Locale.ROOT)
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+            .replace(Regex("\\b(app|application)\\b"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
 
     @JavascriptInterface
@@ -154,11 +224,27 @@ class AndroidBridge(private val context: Context) : TextToSpeech.OnInitListener 
 
     @JavascriptInterface
     fun closeCurrent() {
-        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        try {
+            val accessibility = JarvisAccessibilityService.instance
+            if (accessibility?.performGlobalAction(
+                    android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME
+                ) == true
+            ) {
+                return
+            }
+        } catch (e: Exception) {
+            Log.w("AndroidBridge", "Accessibility Home unavailable; using Android Home intent", e)
         }
-        context.startActivity(homeIntent)
+
+        try {
+            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(homeIntent)
+        } catch (e: Exception) {
+            Log.e("AndroidBridge", "Unable to return to Home", e)
+        }
     }
 
     @JavascriptInterface

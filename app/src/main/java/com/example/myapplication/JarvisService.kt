@@ -15,6 +15,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import java.util.Locale
 
 class JarvisService : Service() {
 
@@ -146,13 +147,18 @@ class JarvisService : Service() {
     }
 
     private fun handleCommand(text: String) {
-        val cmd = text.substringAfter(wakeWord).substringAfter("jervis").substringAfter("jarves").trim()
+        val cmd = normalizeCommandText(text)
         if (cmd.isEmpty()) {
             bridge.speak("Ji Sir?") { startListening() }
             return
         }
 
         Log.d("JarvisService", "Processing command: $cmd")
+
+        // App open/home commands are intentionally handled before the broad
+        // AI/sentence parser. This avoids a generic match stealing commands
+        // such as "YouTube kholo" or "Chrome chalao".
+        if (handleDirectAppControl(cmd)) return
 
         // Check for pending action response first (multi-step flow)
         if (pendingAction != null) {
@@ -209,6 +215,56 @@ class JarvisService : Service() {
 
         // Always restart listening after command processing (fallback if no handler started it)
         handler.postDelayed({ if (!isListening) startListening() }, 8000)
+    }
+
+    private fun normalizeCommandText(text: String): String {
+        return text.lowercase(Locale.ROOT)
+            .replace(Regex("[\\p{Punct}]+"), " ")
+            .replace(Regex("\\b(jarvis|jervis|jarves)\\b"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    private fun handleDirectAppControl(command: String): Boolean {
+        val homePhrases = listOf(
+            "close all", "close app", "stop all", "app band karo",
+            "band karo", "sab band karo", "exit karo", "bahar jao",
+            "home", "home jao", "home karo", "home screen jao",
+            "home screen", "main screen par jao", "desktop jao",
+            "home button dabao", "ghar jao", "homescreen jao"
+        )
+        val isHome = homePhrases.any { phrase ->
+            command == phrase || command.endsWith(" $phrase")
+        } && !listOf("music", "video", "song", "wifi", "bluetooth").any {
+            command.contains(it)
+        }
+        if (isHome) {
+            bridge.closeCurrent()
+            bridge.speak("Ji Sir, Home screen par ja raha hoon.") { startListening() }
+            return true
+        }
+
+        val openVerb = "(?:open|kholo|khol|chalao|launch|start)"
+        val normalized = command
+            .replace(Regex("\\b(?:karo|do|ke dikhao|kar do)\\b"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        val beforeVerb = Regex("^(.+?)\\s+$openVerb$").find(normalized)?.groupValues?.get(1)
+        val afterVerb = Regex("^$openVerb\\s+(.+)$").find(normalized)?.groupValues?.get(1)
+        val app = (beforeVerb ?: afterVerb)
+            ?.replace(Regex("\\b(?:app|application)\\b"), " ")
+            ?.replace(Regex("\\s+"), " ")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() && it !in setOf("all", "everything") }
+
+        if (app != null && !command.contains("search") && !command.contains("message")) {
+            bridge.speak("Ji Sir! $app khol raha hoon.") {
+                bridge.openApp(app)
+                handler.postDelayed({ startListening() }, 3000)
+            }
+            return true
+        }
+        return false
     }
 
     // Pending action for multi-step flows
@@ -427,7 +483,7 @@ class JarvisService : Service() {
             "SWIPE_LEFT" -> { JarvisAccessibilityService.instance?.performSwipeLeft(); bridge.speak("Ji Sir!") { startListening() }; true }
             "SWIPE_RIGHT" -> { JarvisAccessibilityService.instance?.performSwipeRight(); bridge.speak("Ji Sir!") { startListening() }; true }
             "GO_BACK" -> { JarvisAccessibilityService.instance?.performBack(); bridge.speak("Ji Sir!") { startListening() }; true }
-            "GO_HOME" -> { JarvisAccessibilityService.instance?.performHome(); bridge.speak("Ji Sir!") { startListening() }; true }
+            "GO_HOME" -> { bridge.closeCurrent(); bridge.speak("Ji Sir!") { startListening() }; true }
             "RECENTS" -> { JarvisAccessibilityService.instance?.performRecents(); bridge.speak("Ji Sir!") { startListening() }; true }
             "LIKE" -> { performSocialAction("like"); true }
             "COMMENT" -> {
@@ -601,7 +657,7 @@ class JarvisService : Service() {
                 true
             }
             "GO_HOME" -> {
-                JarvisAccessibilityService.instance?.performHome()
+                bridge.closeCurrent()
                 bridge.speak("Ji Sir!") { startListening() }
                 true
             }
